@@ -4,6 +4,8 @@ from gdx import gdx
 from time import sleep
 import time
 import requests
+import random
+
 
 # setup loggers
 logging.config.fileConfig('plateclient.logconfig', disable_existing_loggers=False)
@@ -31,30 +33,16 @@ def pass_data_to_server(deviceid, data, cnt, ts):
 def current_milli_time():
     return round(time.time() * 1000)
 
-gdx = gdx.gdx()
-gdx.open(connection='ble',device_to_open='GDX-FP 1J1000T6')
-# sensor type: Force
-gdx.select_sensors([1])
-# sample rate: 1ms
-gdx.start(1)
-column_headers= gdx.enabled_sensor_info()   # returns a string with sensor description and units
-logger.info('\n')
-logger.info(column_headers)
-
 count = 0
 try:
     while True:
-        measurements = gdx.read()
-        if measurements == None:
-            break
+        measurement = random.uniform(16, 17)
         count = count + 1
         ts = current_milli_time()
-        logger.info(f"count:{count} ts:{ts} measurements:{measurements[0]}")
-        pass_data_to_server("deviceid", measurements[0], count, ts)
+        logger.info(f"count:{count} ts:{ts} measurements:{measurement}")
+        pass_data_to_server("1J1000T6", measurement, count, ts)
+        time.sleep(1/1000)
 except KeyboardInterrupt:
     pass
-
-gdx.stop()
-gdx.close()
 
 input("Press Enter to exit...")

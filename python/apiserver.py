@@ -4,7 +4,8 @@ from typing import Union
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
-import numpy as np
+# import numpy as np
+import pprint
 
 # setup loggers
 logging.config.fileConfig('apiserver.logconfig', disable_existing_loggers=False)
@@ -37,7 +38,7 @@ app.add_middleware(
 #     app.state.data = []
 
 counter_lock = asyncio.Lock()
-counter = 0
+# counter = 0
 databuffer_lock = asyncio.Lock()
 databuffer = []
 
@@ -49,19 +50,21 @@ def read_root():
 # async def dump(start: int, end: int)
 async def dump():
     global databuffer
+    ret = ""
     async with databuffer_lock:
-        for row in databuffer:
-            logger.info(f"cnt:{row[0]} data:{row[1]} ts:{row[2]}")
+        # for row in databuffer:
+        #     logger.info(f"deviceid:{row[0]} cnt:{row[1]} data:{row[2]} ts:{row[3]}")
+        ret = pprint.pformat(databuffer)
         databuffer = []
-    return "OK"
+    return ret
 
-@app.get("/add/{data}/cnt/{cnt}/ts/{ts}")
-async def add(data: float,cnt: int,ts: int):
+@app.get("/add/{deviceid}/data/{data}/cnt/{cnt}/ts/{ts}")
+async def add(deviceid: str,data: float,cnt: int,ts: int):
     global counter
     global databuffer
-    newdata = [cnt,data,ts]
-    async with counter_lock:
-        counter += 1
+    newdata = [deviceid,cnt,data,ts]
+    # async with counter_lock:
+    #     counter += 1
     async with databuffer_lock:
         databuffer.append(newdata)
     # logger.info(f"no:{counter} cnt:{cnt} data:{data} ts:{ts}")

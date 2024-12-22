@@ -1,0 +1,128 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <script src="js/FileSaver.min.js"></script>
+  <script src="js/chart.js"></script>
+  <script src="js/bootstrap.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body>
+  <div style="float: left; width: 30%;">
+    samplerate<input type="number" name="samplerate" id="samplerate" value="10" style="width: 80px;">&nbsp;ms<br />
+    <button id="btnStart" onclick="start()">Start</button><br />
+    <button id="btnEnd" onclick="end()">End</button><br />
+    <button id="btnSave" onclick="save()">Save</button><br />
+    <button id="btnDraw" onclick="draw()">Draw</button><br />
+    <span id="dur">0</span> &nbsp;ms<br />
+    <span id="measurements">0</span> &nbsp;measurements<br />
+  </div>
+  <div style="float: left; width: 400px;height: 400px;">
+    <div style="min-width: 150px;max-width: 400px; max-height: 400px; min-height: 150px;">
+      <canvas id="myChart"></canvas>
+    </div>
+  </div>
+  <pre id="output" style="height: 300px;overflow: auto;width: 60%;"></pre>
+
+  <script>
+    // setup the calculator
+    let toggleCollect = false;
+    let collectcount = 0;
+    let savedata = [];
+
+    let startts = 0;
+    let endts = 0;
+
+    let collecting = false;
+    let delta = 1.0;
+
+    const selectDeviceBtn = document.querySelector('#select_device');
+    const collectBtn = document.querySelector('#start_stop_collection');
+    const output = document.querySelector('#output');
+    const txtdur = document.querySelector('#dur');
+    const txtmeasurements = document.querySelector('#measurements');
+    const valsamplerate = document.querySelector('#samplerate');
+
+    let gdxDevice;
+
+    const start = async () => {
+      startts = new Date().getTime();
+      endts = 0;
+    }
+
+    var getdata = async () => {
+      const res = await fetch('http://127.0.0.1:8000/dump', {
+        method: 'GET'
+      });
+
+      return await res.json()
+    }
+    const end = async () => {
+      endts = new Date().getTime();
+      getdata().then(resp => {
+        let collectary = JSON.parse(resp.replaceAll("'", '\"'));
+        savedata = collectary.filter(o => o[3] > startts && o[3] < endts);
+
+        let dur = endts - startts;
+        txtdur.textContent = dur;
+        txtmeasurements.textContent = savedata.length;
+      });
+    }
+
+    const draw = async () => {
+      const ctx = document.getElementById('myChart');
+
+      const data = {
+        //labels: savedata.map(o=>new Date(o.t).toJSON().replace('T', ' ').replace('Z', '')),
+        labels: savedata.map((o, i) => i),
+        datasets: [{
+          label: 'My First dataset',
+          backgroundColor: '#00FF0066',
+          borderColor: '#00FF0000',
+          fill: false,
+          data: savedata.map(o => o[2]),
+        }]
+      };
+
+      if (Chart.getChart("myChart")) Chart.getChart("myChart").destroy()
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: data,
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'top',
+            },
+            title: {
+              display: true,
+              text: 'Chart.js Line Chart'
+            }
+          }
+        },
+      });
+    }
+    let chart = null;
+    const save = async () => {
+      // Save content to a file
+
+      let summarydata = savedata.reduce((res, o) => res += `${o[3]} => ${o[2]}\n`, "");
+
+      var blob = new Blob([summarydata], { type: "text/plain;charset=ascii" });
+      saveAs(blob, "data.txt");
+    }
+
+    const save1 = async () => {
+      // Save content to a file
+
+      let summarydata = summmary.reduce((res, o) => res += `${o[3]} => ${o[2]}\n`, "");
+
+      var blob = new Blob([summarydata], { type: "text/plain;charset=ascii" });
+      saveAs(blob, "data.txt");
+    }
+
+  </script>
+</body>
+
+</html>
