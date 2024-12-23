@@ -26,8 +26,8 @@
             <header
                 class="d-flex flex-wrap align-items-center justify-content-center justify-content-md-between py-3 mb-4 border-bottom">
                 <ul class="nav nav-pills">
-                    <li class="nav-item"><a href="#" class="nav-link active" onclick="start()">Start</a></li>
-                    <li class="nav-item"><a href="#" class="nav-link active" onclick="stop()">Stop</a></li>
+                    <li class="nav-item"><a id="btnstart" href="#" class="nav-link active" onclick="start()">Start</a></li>
+                    <!-- <li class="nav-item"><a href="#" class="nav-link active" onclick="stop()">Stop</a></li> -->
                     <li class="nav-item"><a href="#" class="nav-link active" onclick="save()">Save</a></li>
                     <li class="nav-item"><a href="#" class="nav-link active" onclick="draw()">Draw</a></li>
                 </ul>
@@ -36,8 +36,11 @@
 
 
         <div class="container">
-            Sample Rate: <input type="number" name="samplerate" id="samplerate" value="10"
-                style="width: 80px;">&nbsp;ms<br />
+            <div style="display: none;">
+                Sample Rate: <input type="number" name="samplerate" id="samplerate" value="1"
+                    style="width: 80px;">&nbsp;ms<br /></div>
+            Start: <span id="starttime">0</span> &nbsp;<br />
+            End: <span id="endtime">0</span> &nbsp;<br />
             <span id="dur">0</span> &nbsp;ms<br />
             <span id="measurements">0</span> &nbsp;measurements<br />
             <div style="float: left; width: 80%">
@@ -71,12 +74,30 @@
         let gdxDevice;
 
         const start = async () => {
-            startts = new Date().getTime();
-            endts = 0;
+            if (document.querySelector('#btnstart').textContent == 'Start') {
+                document.querySelector('#btnstart').textContent = 'End';
+                startts = new Date().getTime();
+                document.querySelector('#starttime').textContent = startts;
+                endts = 0;
+            } else {
+                document.querySelector('#btnstart').textContent = 'Start';
+                endts = new Date().getTime();
+                document.querySelector('#endtime').textContent = endts;
+                setTimeout(() => {
+                    getdata(startts, endts).then(resp => {
+                        let collectary = JSON.parse(resp.replaceAll("'", '\"'));
+                        savedata = collectary.filter(o => o[3] > startts && o[3] < endts);
+
+                        let dur = endts - startts;
+                        txtdur.textContent = dur;
+                        txtmeasurements.textContent = savedata.length;
+                    });
+                }, 1000);
+            }
         }
 
-        var getdata = async () => {
-            const res = await fetch('http://127.0.0.1:8000/dump', {
+        var getdata = async (startts, endts) => {
+            const res = await fetch(`http://127.0.0.1:8000/dump/${startts}/to/${endts}`, {
                 method: 'GET'
             });
 
@@ -84,14 +105,17 @@
         }
         const stop = async () => {
             endts = new Date().getTime();
-            getdata().then(resp => {
-                let collectary = JSON.parse(resp.replaceAll("'", '\"'));
-                savedata = collectary.filter(o => o[3] > startts && o[3] < endts);
+            document.querySelector('#endtime').textContent = endts;
+            setTimeout(() => {
+                getdata(startts, endts).then(resp => {
+                    let collectary = JSON.parse(resp.replaceAll("'", '\"'));
+                    savedata = collectary.filter(o => o[3] > startts && o[3] < endts);
 
-                let dur = endts - startts;
-                txtdur.textContent = dur;
-                txtmeasurements.textContent = savedata.length;
-            });
+                    let dur = endts - startts;
+                    txtdur.textContent = dur;
+                    txtmeasurements.textContent = savedata.length;
+                });
+            }, 3000);
         }
 
         const draw = async () => {
@@ -131,7 +155,7 @@
         const save = async () => {
             // Save content to a file
 
-            let summarydata = savedata.reduce((res, o) => res += `${o[3]} => ${o[2]}\n`, "");
+            let summarydata = savedata.reduce((res, o) => res += `${o[1]}: ${o[3]} => ${o[2]}\n`, "");
 
             var blob = new Blob([summarydata], { type: "text/plain;charset=ascii" });
             saveAs(blob, "data.txt");

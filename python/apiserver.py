@@ -4,8 +4,11 @@ from typing import Union
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
-# import numpy as np
 import pprint
+from pydantic import BaseModel
+import json
+from datetime import datetime
+import queue
 
 # setup loggers
 logging.config.fileConfig('apiserver.logconfig', disable_existing_loggers=False)
@@ -13,14 +16,6 @@ logging.config.fileConfig('apiserver.logconfig', disable_existing_loggers=False)
 # get root logger
 logger = logging.getLogger(__name__)  # the __name__ resolve to "main" since we are at the root of the project.
                                       # This will get the root logger since no logger in the configuration has this name.
-# for i in range(0,20):
-#     measurements = gdx.read()
-#     if measurements == None:
-#         break
-#     print(measurements)
-
-# gdx.stop()
-# gdx.close()
 
 app = FastAPI()
 origins = ["*"]
@@ -33,41 +28,66 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# @app.on_event("startup")
-# def startup_event():
-#     app.state.data = []
-
-counter_lock = asyncio.Lock()
-# counter = 0
 databuffer_lock = asyncio.Lock()
 databuffer = []
+
+q = queue.Queue()
 
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
 
-@app.get("/dump")
-# async def dump(start: int, end: int)
-async def dump():
-    global databuffer
+@app.get("/dump/{start}/to/{end}")
+async def dump(start: int, end: int):
+# async def dump():
+    # global databuffer
     ret = ""
-    async with databuffer_lock:
-        # for row in databuffer:
-        #     logger.info(f"deviceid:{row[0]} cnt:{row[1]} data:{row[2]} ts:{row[3]}")
-        ret = pprint.pformat(databuffer)
-        databuffer = []
+    # async with databuffer_lock:
+    #     for row in databuffer:
+    #         logger.info(f"deviceid:{row[0]} cnt:{row[1]} data:{row[2]} ts:{row[3]}")
+    #     ret = pprint.pformat(databuffer)
+    #     databuffer = []
+    databuffer = []
+    while not q.empty():
+        item = q.get()
+        if (item[3] >= start and item[3] <= end):
+            databuffer.append(item)
+        # if (item[3] > end):
+        #     break
+
+    ret = pprint.pformat(databuffer)
     return ret
 
 @app.get("/add/{deviceid}/data/{data}/cnt/{cnt}/ts/{ts}")
 async def add(deviceid: str,data: float,cnt: int,ts: int):
-    global counter
-    global databuffer
+    # global counter
+    # global databuffer
     newdata = [deviceid,cnt,data,ts]
     # async with counter_lock:
     #     counter += 1
-    async with databuffer_lock:
-        databuffer.append(newdata)
+    # async with databuffer_lock:
+    #     databuffer.append(newdata)
+    q.put(newdata)
     # logger.info(f"no:{counter} cnt:{cnt} data:{data} ts:{ts}")
+    return "OK"
+
+class PlateData(BaseModel):
+    data: list = []
+
+@app.post("/addbuf/")
+async def addbuf(buf: PlateData):
+    logger.info(f"buf len: {len(buf.data)}")
+    # begin = buf.data[0][3]
+    # end = buf.data[999][3]
+    # dt_begin = datetime.fromtimestamp(begin)
+    # dt_end = datetime.fromtimestamp(end)
+    # logger.info(f"begin: {dt_begin}")
+    # logger.info(f"end: {dt_end}")
+    # async with databuffer_lock:
+        # databuffer.append(row)
+        # logger.info(f"deviceid:{row[0]} cnt:{row[1]} data:{row[2]} ts:{row[3]}")
+    for row in buf.data:
+        q.put(row)
     return "OK"
 
 # python -m venv env
